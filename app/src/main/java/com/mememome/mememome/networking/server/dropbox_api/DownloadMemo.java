@@ -12,6 +12,8 @@ import com.dropbox.client2.exception.DropboxParseException;
 import com.dropbox.client2.exception.DropboxPartialFileException;
 import com.dropbox.client2.exception.DropboxServerException;
 import com.dropbox.client2.exception.DropboxUnlinkedException;
+import com.mememome.mememome.AppController;
+import com.mememome.mememome.model.file_manager.FileManager;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -27,7 +29,6 @@ public class DownloadMemo  extends AsyncTask<Void, Long, Boolean> {
 
 
     private Context mContext;
-    private DropboxAPI<?> mApi;
     private String mPath;
     private String mFileName;
 
@@ -41,14 +42,13 @@ public class DownloadMemo  extends AsyncTask<Void, Long, Boolean> {
     // Note that, since we use a single file name here for simplicity, you
     // won't be able to use this code for two simultaneous downloads.
 
-    public DownloadMemo(Context context, DropboxAPI<?> api,
+    public DownloadMemo(Context context,
                                  String dropboxPath, String filName) {
 
 
         // We set the context this way so we don't accidentally leak activities
         mContext = context.getApplicationContext();
         mFileName = filName;
-        mApi = api;
         mPath = dropboxPath;
 
     }
@@ -56,9 +56,10 @@ public class DownloadMemo  extends AsyncTask<Void, Long, Boolean> {
     @Override
     protected Boolean doInBackground(Void... params) {
         try {
-            File file = new File("/" + mFileName);
+
+            File file = new File(FileManager.getExternalDir() + mFileName);
             FileOutputStream outputStream = new FileOutputStream(file);
-            DropboxAPI.DropboxFileInfo info = mApi.getFile(mFileName, null, outputStream, null);
+            DropboxAPI.DropboxFileInfo info = AppController.dropboxApi.getFile(mFileName, null, outputStream, null);
             Log.d(TAG, "The file's rev is: " + info.getMetadata().rev);
 
         }catch (FileNotFoundException e){

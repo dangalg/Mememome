@@ -1,7 +1,6 @@
 package com.mememome.mememome.fragments;
 
 import android.app.Activity;
-import android.support.v4.app.ListFragment;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -9,17 +8,22 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 
+import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.android.AndroidAuthSession;
 import com.mememome.mememome.R;
 import com.mememome.mememome.activities.MemoActivity;
 import com.mememome.mememome.adapters.MemoArrayAdapter;
 import com.mememome.mememome.model.data.MemoDataSource;
 import com.mememome.mememome.model.dao.Memo;
+import com.mememome.mememome.networking.server.dropbox_api.ListFiles;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -31,14 +35,17 @@ import java.util.List;
  * Use the {@link MainFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class MainFragment extends ListFragment {
+public class MainFragment extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
     public static final String EXTRA_MEMO = "extra_memo";
 
+    DropboxAPI<AndroidAuthSession> mApi;
+
     private MemoDataSource datasource;
+    private MemoArrayAdapter adapter;
 
 
     //Buttons
@@ -48,6 +55,7 @@ public class MainFragment extends ListFragment {
     //Views
     View rootView;
     EditText memoNameEditText;
+    ListView memosList;
 
     // LIST
     List<Memo> memos;
@@ -83,6 +91,9 @@ public class MainFragment extends ListFragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        ListFiles lf = new ListFiles(getActivity(),"");
+        lf.execute();
     }
 
     @Override
@@ -90,6 +101,8 @@ public class MainFragment extends ListFragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         rootView = inflater.inflate(R.layout.fragment_main, container, false);
+
+        memosList = (ListView)rootView.findViewById(R.id.listMemos);
 
         memoNameEditText = (EditText)rootView.findViewById(R.id.memoNameEditText);
         btnAdd = (Button)rootView.findViewById(R.id.btnAdd);
@@ -116,20 +129,23 @@ public class MainFragment extends ListFragment {
 
         memos = datasource.getAllMemos();
 
+        memosList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent intent = new Intent(getActivity(), MemoActivity.class);
+                intent.putExtra(EXTRA_MEMO, memos.get(position));
+                startActivity(intent);
+            }
+        });
+
         // use the SimpleCursorAdapter to show the
         // elements in a ListView
-        MemoArrayAdapter adapter = new MemoArrayAdapter(getActivity(), memos);
-        setListAdapter(adapter);
+        adapter = new MemoArrayAdapter(getActivity(), memos);
+        memosList.setAdapter(adapter);
+
+
 
         return rootView;
-    }
-
-    @Override
-    public void onListItemClick(ListView l, View v, int position, long id) {
-        super.onListItemClick(l, v, position, id);
-        Intent intent = new Intent(getActivity(), MemoActivity.class);
-        intent.putExtra(EXTRA_MEMO, memos.get(position));
-        startActivity(intent);
     }
 
     // TODO: Rename method, update argument and hook method into UI event
@@ -156,6 +172,8 @@ public class MainFragment extends ListFragment {
         mListener = null;
     }
 
+
+
     /**
      * This interface must be implemented by activities that contain this
      * fragment to allow an interaction in this fragment to be communicated
@@ -175,7 +193,7 @@ public class MainFragment extends ListFragment {
         // of the buttons in main.xml
     public void onClickButton(View view) {
         @SuppressWarnings("unchecked")
-        ArrayAdapter<Memo> adapter = (ArrayAdapter<Memo>) getListAdapter();
+        ArrayAdapter<Memo> adapter = (ArrayAdapter<Memo>) memosList.getAdapter();
         Memo memo = null;
         switch (view.getId()) {
             case R.id.btnAdd:
@@ -190,8 +208,8 @@ public class MainFragment extends ListFragment {
                 }
                 break;
             case R.id.btnDelete:
-                if (getListAdapter().getCount() > 0) {
-                    memo = (Memo) getListAdapter().getItem(0);
+                if (memosList.getAdapter().getCount() > 0) {
+                    memo = (Memo) memosList.getAdapter().getItem(0);
                     datasource.deleteMemo(memo);
                     adapter.remove(memo);
                 }
@@ -203,11 +221,13 @@ public class MainFragment extends ListFragment {
     @Override
     public void onResume() {
 
+
         try {
             datasource.open();
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        adapter.notifyDataSetChanged();
         super.onResume();
     }
 

@@ -1,11 +1,13 @@
 package com.mememome.mememome.networking.server.dropbox_api;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.os.AsyncTask;
+import android.util.Log;
 import android.widget.Toast;
 
-
 import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.DropboxAPI.Entry;
 import com.dropbox.client2.exception.DropboxException;
 import com.dropbox.client2.exception.DropboxFileSizeException;
 import com.dropbox.client2.exception.DropboxIOException;
@@ -14,40 +16,82 @@ import com.dropbox.client2.exception.DropboxPartialFileException;
 import com.dropbox.client2.exception.DropboxServerException;
 import com.dropbox.client2.exception.DropboxUnlinkedException;
 import com.mememome.mememome.AppController;
+import com.mememome.mememome.model.dao.Memo;
+import com.mememome.mememome.model.data.MemoDataSource;
+import com.mememome.mememome.model.file_manager.FileManager;
+
+import org.json.JSONException;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.sql.SQLException;
+import java.util.ArrayList;
 
 /**
  * Created by dangal on 5/8/15.
  */
-public class UploadMemo extends AsyncTask<Void, Long, Boolean> {
-
-    private File mFile;
+public class ListFiles  extends AsyncTask<Void, Long, Boolean> {
+    public final String TAG = ListFiles.class.getSimpleName();
     private String mPath;
 
     private Context mContext;
 
     private String mErrorMsg;
 
+    private MemoDataSource memoDataSource ;
 
-    public UploadMemo(Context context, String dropboxPath,
-                         File localFile) {
+
+    public ListFiles(Context context, String dropboxPath) {
         // We set the context this way so we don't accidentally leak activities
         mContext = context.getApplicationContext();
-        mPath = dropboxPath + ".txt";
-        mFile = localFile;
+        mPath = dropboxPath;
+        Log.d(TAG, "I have run");
+        memoDataSource = new MemoDataSource(mContext);
+        try {
+            memoDataSource.open();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     protected Boolean doInBackground(Void... params) {
         try {
-            // By creating a request, we get a handle to the putFile operation,
-            // so we can cancel it later if we want to
-            FileInputStream fis = new FileInputStream(mFile);
-            DropboxAPI.Entry mRequest = AppController.dropboxApi.putFileOverwrite(mPath, fis,
-                    mFile.length(), null);
+//            metadata(java.lang.String path, int fileLimit, java.lang.String hash, boolean list, java.lang.String rev)
+            Entry existingEntries = AppController.dropboxApi.metadata("/" + mPath, 0, null, true, null);
+            Log.d(TAG, "The file's rev is now: " + String.valueOf(existingEntries));
+            ArrayList<Entry> files = new ArrayList<>();
+            Memo m = new Memo();
+            String filename = "";
+            for(Entry entry : existingEntries.contents){
+                //If file is not in data base add it
+
+                filename = String.valueOf(entry.fileName());
+                String[] strArr = filename.split("\\.");
+                m = memoDataSource.getMemoByName(strArr[0]);
+                if(m == null){
+
+                    File file = new File(FileManager.getExternalDir() + filename);
+                    FileOutputStream outputStream = new FileOutputStream(file);
+                    DropboxAPI.DropboxFileInfo info = AppController.dropboxApi.getFile(filename, null, outputStream, null);
+                    Log.d(TAG, "Downloaded: " + info.getMetadata().rev);
+
+//                    createMemo(String memoName, String memoText, long memoCreated, long memoUpdated, long memoGroupId)
+                    String text = FileManager.readFromFile(mContext,FileManager.getExternalDir() + filename);
+                    m = new Memo(strArr[0], text,
+                                                                    System.currentTimeMillis(),
+                                                                    System.currentTimeMillis(),
+                                                                    1);
+
+                    memoDataSource.createMemo(m.getName(), m.getText(), m.getCreated(), m.getUpdated(), m.getMemoGroupId());
+                }
+
+            }
+
+            memoDataSource.close();
+
 
         } catch (DropboxUnlinkedException e) {
             // This session wasn't authenticated properly or user unlinked
@@ -89,7 +133,12 @@ public class UploadMemo extends AsyncTask<Void, Long, Boolean> {
             // Unknown error
             mErrorMsg = "Unknown error.  Try again.";
         } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            mErrorMsg = "File Not Found! " + String.valueOf(e);
         }
+
+
+        Log.d(TAG, "Error " + mErrorMsg);
         return false;
     }
 
@@ -100,10 +149,5 @@ public class UploadMemo extends AsyncTask<Void, Long, Boolean> {
 
     @Override
     protected void onPostExecute(Boolean result) {
-    }
-
-    private void showToast(String msg) {
-        Toast error = Toast.makeText(mContext, msg, Toast.LENGTH_LONG);
-        error.show();
     }
 }

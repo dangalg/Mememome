@@ -24,7 +24,9 @@ import com.dropbox.client2.android.AndroidAuthSession;
 import com.dropbox.client2.android.AuthActivity;
 import com.dropbox.client2.session.AccessTokenPair;
 import com.dropbox.client2.session.AppKeyPair;
+import com.mememome.mememome.AppController;
 import com.mememome.mememome.R;
+import com.mememome.mememome.networking.server.dropbox_api.ListFiles;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -59,7 +61,6 @@ public class LoginActivity extends Activity {
 
     private static final boolean USE_OAUTH1 = false;
 
-    DropboxAPI<AndroidAuthSession> mApi;
 
     private boolean mLoggedIn;
 
@@ -75,7 +76,7 @@ public class LoginActivity extends Activity {
 
         // We create a new AuthSession so that we can use the Dropbox API.
         AndroidAuthSession session = buildSession();
-        mApi = new DropboxAPI<AndroidAuthSession>(session);
+        AppController.dropboxApi = new DropboxAPI<AndroidAuthSession>(session);
 
         // Basic Android widgets
         setContentView(R.layout.activity_login);
@@ -92,16 +93,16 @@ public class LoginActivity extends Activity {
                 } else {
                     // Start the remote authentication
                     if (USE_OAUTH1) {
-                        mApi.getSession().startAuthentication(LoginActivity.this);
+                        AppController.dropboxApi.getSession().startAuthentication(LoginActivity.this);
                     } else {
-                        mApi.getSession().startOAuth2Authentication(LoginActivity.this);
+                        AppController.dropboxApi.getSession().startOAuth2Authentication(LoginActivity.this);
                     }
                 }
             }
         });
 
         // Display the proper UI state if logged in or not
-        setLoggedIn(mApi.getSession().isLinked());
+        setLoggedIn(AppController.dropboxApi.getSession().isLinked());
 
     }
 
@@ -113,7 +114,7 @@ public class LoginActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        AndroidAuthSession session = mApi.getSession();
+        AndroidAuthSession session = AppController.dropboxApi.getSession();
 
         // The next part must be inserted in the onResume() method of the
         // activity from which session.startAuthentication() was called, so
@@ -135,7 +136,7 @@ public class LoginActivity extends Activity {
 
     private void logOut() {
         // Remove credentials from the session
-        mApi.getSession().unlink();
+        AppController.dropboxApi.getSession().unlink();
 
         // Clear our stored keys
         clearKeys();

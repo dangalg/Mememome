@@ -12,11 +12,15 @@ import java.io.Serializable;
  */
 public class Memo implements Serializable {
 
+    private long id;
     private String name;
     private String text;
     private long created;
     private long updated;
     private long memoGroupId;
+
+    public Memo() {
+    }
 
     public Memo(String name, String text, long created, long updated, long memoGroupId) {
         this.name = name;
@@ -33,6 +37,14 @@ public class Memo implements Serializable {
     public static final String COLUMN_MEMO_GROUP_ID = "group_id";
 
     // region Properties
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
 
     public String getName() {
         return name;

@@ -110,6 +110,8 @@ public class MemoFragment extends Fragment {
     public void onPause() {
         memo.setName(textName.getText().toString());
         memo.setText(textPad.getText().toString());
+        memo.setUpdated(System.currentTimeMillis());
+        memo.setMemoGroupId(1);
         datasource.saveMemo(memo);
         datasource.close();
         super.onPause();

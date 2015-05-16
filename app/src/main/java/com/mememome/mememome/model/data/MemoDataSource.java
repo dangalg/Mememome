@@ -5,13 +5,19 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.android.AndroidAuthSession;
+import com.mememome.mememome.AppController;
 import com.mememome.mememome.model.dao.Memo;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.mememome.mememome.model.contentprovider.MememomeContract.MemoEntry;
+import com.mememome.mememome.model.file_manager.FileManager;
+import com.mememome.mememome.networking.server.dropbox_api.UploadMemo;
 
 /**
  * Created by dangal on 4/9/15.
@@ -21,6 +27,7 @@ public class MemoDataSource {
     // Database fields
     private SQLiteDatabase database;
     private MySQLiteHelper dbHelper;
+    Context mContext;
 
     private String[] allColumns = {
             MemoEntry._ID,
@@ -31,6 +38,7 @@ public class MemoDataSource {
             MemoEntry.COLUMN_MEMO_GROUP_ID};
 
     public MemoDataSource(Context context) {
+        mContext = context;
         dbHelper = new MySQLiteHelper(context);
     }
 
@@ -57,7 +65,18 @@ public class MemoDataSource {
         cursor.moveToFirst();
         Memo newMemo = cursorToMemo(cursor);
         cursor.close();
+
+        saveMemoTofFileAndUploadToDropbox(memoName, memoText);
+
         return newMemo;
+    }
+
+    private void saveMemoTofFileAndUploadToDropbox(String memoName, String memoText) {
+        File file = FileManager.saveMemo(mContext, memoName, memoText);
+
+        //TODO add groupname as folder in front of the name
+        UploadMemo um = new UploadMemo(mContext, memoName, file);
+        um.execute();
     }
 
     // TODO think if to delete or just mark as deleted
@@ -140,6 +159,7 @@ public class MemoDataSource {
                 whereArgs);
 
         if(numberOfRowsAffected > 0) {
+            saveMemoTofFileAndUploadToDropbox(memo.getName(), memo.getText());
             return true;
         }
         else
