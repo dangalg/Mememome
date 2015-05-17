@@ -11,10 +11,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 
 import com.mememome.mememome.R;
-import com.mememome.mememome.model.data.MemoDataSource;
 import com.mememome.mememome.model.dao.Memo;
-
-import java.sql.SQLException;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -35,7 +32,6 @@ public class MemoFragment extends Fragment {
     private String mParam2;
 
     Memo memo;
-    private MemoDataSource datasource;
 
     //Views
     View rootView;
@@ -74,9 +70,9 @@ public class MemoFragment extends Fragment {
             mParam2 = getArguments().getString(ARG_PARAM2);
         }
 
-        if(getActivity().getIntent() != null){
-            Intent intent = getActivity().getIntent();
-            memo = (Memo)intent.getSerializableExtra(MainFragment.EXTRA_MEMO);
+        Intent intent = getActivity().getIntent();
+        if(intent != null){
+            memo = Memo.findById(Memo.class, intent.getLongExtra(MainFragment.EXTRA_MEMO,1));
         }
     }
 
@@ -91,18 +87,12 @@ public class MemoFragment extends Fragment {
         textName = (EditText)rootView.findViewById(R.id.textName);
         textName.setText(memo.getName());
 
-        datasource = new MemoDataSource(getActivity());
-
         return rootView;
     }
 
     @Override
     public void onResume() {
-        try {
-            datasource.open();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+
         super.onResume();
     }
 
@@ -112,8 +102,7 @@ public class MemoFragment extends Fragment {
         memo.setText(textPad.getText().toString());
         memo.setUpdated(System.currentTimeMillis());
         memo.setMemoGroupId(1);
-        datasource.saveMemo(memo);
-        datasource.close();
+        memo.save();
         super.onPause();
     }
 

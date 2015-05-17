@@ -64,13 +64,12 @@ public class FileManager {
         return file.delete();
     }
 
-    public static void writeToFile(String fileName, String data) {
+    public static File writeToFile(String fileName, String data) {
+
+        String fpath = getExternalDir() +fileName+".txt";
+
+        File file = new File(fpath);
         try {
-
-            String fpath = Environment.getExternalStorageDirectory()+File.separator+"mememome"
-                    +File.separator+fileName+".txt";
-
-            File file = new File(fpath);
 
             // If file does not exists, then create it
             if (!file.exists()) {
@@ -86,7 +85,10 @@ public class FileManager {
 
         } catch (IOException e) {
             e.printStackTrace();
+            file = null;
         }
+        return file;
+
     }
 
 

@@ -13,18 +13,13 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
-
-import com.dropbox.client2.DropboxAPI;
-import com.dropbox.client2.android.AndroidAuthSession;
 import com.mememome.mememome.R;
 import com.mememome.mememome.activities.MemoActivity;
 import com.mememome.mememome.adapters.MemoArrayAdapter;
-import com.mememome.mememome.model.data.MemoDataSource;
 import com.mememome.mememome.model.dao.Memo;
-import com.mememome.mememome.networking.server.dropbox_api.ListFiles;
+import com.mememome.mememome.networking.server.dropbox_api.SyncDropBoxFiles;
 
-import java.io.File;
-import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,15 +37,11 @@ public class MainFragment extends Fragment {
     private static final String ARG_PARAM2 = "param2";
     public static final String EXTRA_MEMO = "extra_memo";
 
-    DropboxAPI<AndroidAuthSession> mApi;
-
-    private MemoDataSource datasource;
     private MemoArrayAdapter adapter;
 
 
     //Buttons
     Button btnAdd;
-    Button btnDelete;
 
     //Views
     View rootView;
@@ -58,7 +49,7 @@ public class MainFragment extends Fragment {
     ListView memosList;
 
     // LIST
-    List<Memo> memos;
+    ArrayList<Memo> memos;
 
     // TODO: Rename and change types of parameters
     private String mParam1;
@@ -92,7 +83,7 @@ public class MainFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        ListFiles lf = new ListFiles(getActivity(),"");
+        SyncDropBoxFiles lf = new SyncDropBoxFiles(getActivity(),"");
         lf.execute();
     }
 
@@ -112,29 +103,25 @@ public class MainFragment extends Fragment {
                 onClickButton(v);
             }
         });
-        btnDelete = (Button)rootView.findViewById(R.id.btnDelete);
-        btnDelete.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onClickButton(v);
-            }
-        });
 
-        datasource = new MemoDataSource(getActivity());
-        try {
-            datasource.open();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        List memosFromDB = Memo.listAll(Memo.class);
 
-        memos = datasource.getAllMemos();
+        memos = new ArrayList<Memo>(memosFromDB);
 
         memosList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent intent = new Intent(getActivity(), MemoActivity.class);
-                intent.putExtra(EXTRA_MEMO, memos.get(position));
+                intent.putExtra(EXTRA_MEMO, memos.get(position).getId());
                 startActivity(intent);
+            }
+        });
+
+        memosList.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                removeMemo(position);
+                return false;
             }
         });
 
@@ -146,6 +133,14 @@ public class MainFragment extends Fragment {
 
 
         return rootView;
+    }
+
+    private void removeMemo(int position) {
+        Memo memo = memos.get(position);
+        adapter.remove(memo);
+        memo.delete();
+        memos.remove(position);
+        adapter.notifyDataSetChanged();
     }
 
     // TODO: Rename method, update argument and hook method into UI event
@@ -199,19 +194,17 @@ public class MainFragment extends Fragment {
             case R.id.btnAdd:
                 if(!memoNameEditText.getText().toString().isEmpty()) {
                     // save the new comment to the database
-                    memo = datasource.createMemo(memoNameEditText.getText().toString(),
-                            "",
-                            System.currentTimeMillis(),
-                            System.currentTimeMillis(),
-                            1L);
+                    memo = new Memo(memoNameEditText.getText().toString(), //name
+                            "", // text
+                            System.currentTimeMillis(), // created
+                            System.currentTimeMillis(), // updated
+                            "0", // rev
+                            "", // hash
+                            1L, // memoGroupId
+                            "", // localFilePath
+                            ""); // dropboxFilePath
+                    memo.save();
                     adapter.add(memo);
-                }
-                break;
-            case R.id.btnDelete:
-                if (memosList.getAdapter().getCount() > 0) {
-                    memo = (Memo) memosList.getAdapter().getItem(0);
-                    datasource.deleteMemo(memo);
-                    adapter.remove(memo);
                 }
                 break;
         }
@@ -221,19 +214,12 @@ public class MainFragment extends Fragment {
     @Override
     public void onResume() {
 
-
-        try {
-            datasource.open();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
         adapter.notifyDataSetChanged();
         super.onResume();
     }
 
     @Override
     public void onPause() {
-        datasource.close();
         super.onPause();
     }
 }
